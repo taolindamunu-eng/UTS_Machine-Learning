@@ -1,9 +1,10 @@
+%%writefile app.py
 import streamlit as st
 import pandas as pd
 import pickle
 import numpy as np
-from sklearn.cluster 
-import AgglomerativeClustering
+from sklearn.cluster import AgglomerativeClustering
+from scipy.spatial.distance import cdist
 
 # Set judul halaman
 st.set_page_config(page_title="Student Performance Prediction")
@@ -17,9 +18,17 @@ def load_assets():
         model_gmm = pickle.load(f)
     with open('scaler.pkl', 'rb') as f:
         sc = pickle.load(f)
-    return model_km, model_gmm, sc
+    
+    # centroid untuk agglomerative (WAJIB ADA)
+    try:
+        with open('agglo_centroids.pkl', 'rb') as f:
+            agglo_centroids = pickle.load(f)
+    except:
+        agglo_centroids = None
 
-kmeans, gmm, scaler = load_assets()
+    return model_km, model_gmm, sc, agglo_centroids
+
+kmeans, gmm, scaler, agglo_centroids = load_assets()
 
 st.title("🎓 Klasifikasi Performa Akademik Siswa")
 st.write("Aplikasi ini mengelompokkan siswa berdasarkan nilai akademik menggunakan algoritma Clustering.")
@@ -30,34 +39,46 @@ math_score = st.sidebar.slider("Math Score", 0, 100, 70)
 reading_score = st.sidebar.slider("Reading Score", 0, 100, 70)
 writing_score = st.sidebar.slider("Writing Score", 0, 100, 70)
 
-algo_choice = st.selectbox("Pilih Algoritma Clustering", ["K-Means", "Gaussian Mixture Model (GMM)", "Agglomerative Clustering"])
+algo_choice = st.selectbox(
+    "Pilih Algoritma Clustering",
+    ["K-Means", "Gaussian Mixture Model (GMM)", "Agglomerative Clustering"]
+)
 
 if st.button("Analisis Cluster"):
     # Preprocessing input
     data = np.array([[math_score, reading_score, writing_score]])
     data_scaled = scaler.transform(data)
-    
+
     # Prediksi
     if algo_choice == "K-Means":
         cluster = kmeans.predict(data_scaled)[0]
+
     elif algo_choice == "Gaussian Mixture Model (GMM)":
         cluster = gmm.predict(data_scaled)[0]
-    else:
-        # Catatan: Agglomerative di sklearn tidak punya .predict untuk data baru
-        # Biasanya digunakan pendekatan manual (jarak terdekat ke centroid cluster yang ada)
-        st.warning("Catatan: Agglomerative Clustering pada scikit-learn tidak mendukung prediksi data tunggal secara langsung. Cluster ditampilkan berdasarkan pendekatan heuristik.")
-        cluster = "N/A (Lihat K-Means/GMM)"
-    
-    # Tampilkan Hasil
-    if isinstance(cluster, int):
-        st.subheader(f"Hasil Prediksi: Cluster {cluster}")
-        if cluster == 0:
-            st.info("Karakteristik Cluster 0: Siswa dengan performa akademik yang cenderung sedang/rendah.")
-        else:
-            st.success("Karakteristik Cluster 1: Siswa dengan performa akademik yang tinggi.")
-    else:
-        st.subheader(f"Hasil Prediksi: {cluster}")
 
-    # Visualisasi sederhana posisi data
+    elif algo_choice == "Agglomerative Clustering":
+        if agglo_centroids is None:
+            st.error("File agglo_centroids.pkl tidak ditemukan. Silakan buat terlebih dahulu saat training.")
+            cluster = None
+        else:
+            distances = cdist(data_scaled, agglo_centroids)
+            cluster = np.argmin(distances)
+
+    # Tampilkan hasil
+    if cluster is not None:
+        st.subheader(f"Hasil Prediksi: Cluster {cluster}")
+
+        if cluster == 0:
+            st.info("Karakteristik Cluster 0: Performa cenderung rendah/sedang.")
+        elif cluster == 1:
+            st.success("Karakteristik Cluster 1: Performa tinggi.")
+        else:
+            st.warning("Cluster tambahan terdeteksi.")
+
+    # Info khusus Agglomerative
+    if algo_choice == "Agglomerative Clustering":
+        st.info("Agglomerative Clustering menggunakan pendekatan jarak ke centroid karena tidak memiliki fungsi predict bawaan.")
+
+    # Tampilkan data input
     df_input = pd.DataFrame(data, columns=['Math', 'Reading', 'Writing'])
     st.table(df_input)
