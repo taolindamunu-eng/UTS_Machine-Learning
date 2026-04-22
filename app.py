@@ -8,7 +8,6 @@ from scipy.spatial.distance import cdist
 # Set judul halaman
 st.set_page_config(page_title="Student Performance Prediction", page_icon="🎓")
 
-# Load model dan scaler
 @st.cache_resource
 def load_assets():
     with open('model_kmeans.pkl', 'rb') as f:
@@ -18,7 +17,6 @@ def load_assets():
     with open('scaler.pkl', 'rb') as f:
         sc = pickle.load(f)
     
-    # centroid untuk agglomerative (WAJIB ADA)
     try:
         with open('agglo_centroids.pkl', 'rb') as f:
             agglo_centroids = pickle.load(f)
@@ -30,7 +28,7 @@ def load_assets():
 kmeans, gmm, scaler, agglo_centroids = load_assets()
 
 st.title("🎓 Klasifikasi Performa Akademik Siswa")
-st.write("Aplikasi ini mengelompokkan siswa berdasarkan nilai akademik menggunakan algoritma Clustering.")
+st.write("Aplikasi ini mengelompokkan siswa berdasarkan nilai akademik secara konsisten di semua algoritma.")
 
 # Sidebar untuk input
 st.sidebar.header("Input Nilai Siswa")
@@ -44,13 +42,11 @@ algo_choice = st.selectbox(
 )
 
 if st.button("Analisis Cluster"):
-    # Preprocessing input
     data = np.array([[math_score, reading_score, writing_score]])
     data_scaled = scaler.transform(data)
-
-    # Prediksi Awal (Identitas asli dari model)
     raw_cluster = None
 
+    # 1. Prediksi berdasarkan algoritma yang dipilih
     if algo_choice == "K-Means":
         raw_cluster = kmeans.predict(data_scaled)[0]
 
@@ -58,30 +54,30 @@ if st.button("Analisis Cluster"):
         raw_cluster = gmm.predict(data_scaled)[0]
 
     elif algo_choice == "Agglomerative Clustering":
-        if agglo_centroids is None:
-            st.error("File agglo_centroids.pkl tidak ditemukan.")
-        else:
+        if agglo_centroids is not None:
             distances = cdist(data_scaled, agglo_centroids)
             raw_cluster = np.argmin(distances)
+        else:
+            st.error("Centroid Agglomerative tidak ditemukan.")
 
+    # 2. EKSEKUSI PENUKARAN LABEL UNTUK SEMUA ALGORITMA
     if raw_cluster is not None:
+        # Berdasarkan temuan kita, model aslimu memberikan label 0 untuk skor tinggi (di gambar awal)
+        # Namun kamu ingin standar baru: Cluster 0 = TINGGI, Cluster 1 = RENDAH.
+        # Jika hasil prediksi mentah (raw) adalah 0 (rendah), kita balik jadi 1.
+        # Jika hasil prediksi mentah (raw) adalah 1 (tinggi), kita balik jadi 0.
         
         final_cluster = 1 if raw_cluster == 0 else 0
 
-        # Tampilkan hasil
-        st.subheader(f"Hasil Prediksi: Cluster {final_cluster}")
+        # 3. Tampilkan hasil dengan label yang sudah konsisten
+        st.subheader(f"Hasil Prediksi ({algo_choice}): Cluster {final_cluster}")
 
         if final_cluster == 0:
             st.success("✨ **Karakteristik Cluster 0: Performa Akademik Tinggi.**")
-            st.write("Siswa pada kelompok ini memiliki penguasaan materi yang sangat baik di semua bidang.")
-        elif final_cluster == 1:
+            st.markdown("- Penguasaan materi sangat baik.\n- Nilai di atas rata-rata keseluruhan.")
+        else:
             st.warning("⚠️ **Karakteristik Cluster 1: Performa Akademik Rendah/Sedang.**")
-            st.write("Siswa pada kelompok ini memerlukan bimbingan tambahan untuk meningkatkan nilai akademik.")
+            st.markdown("- Memerlukan bimbingan tambahan.\n- Fokus pada peningkatan nilai dasar.")
 
-    # Info teknis khusus Agglomerative
-    if algo_choice == "Agglomerative Clustering":
-        st.caption("_Info: Menggunakan perhitungan Euclidean Distance ke Centroid._")
-
-    # Tampilkan data input
-    df_input = pd.DataFrame(data, columns=['Math', 'Reading', 'Writing'])
-    st.table(df_input)
+    # Tabel input untuk konfirmasi user
+    st.table(pd.DataFrame(data, columns=['Math', 'Reading', 'Writing']))
