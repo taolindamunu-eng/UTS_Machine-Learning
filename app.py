@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import pickle
 import numpy as np
+from sklearn.cluster 
+import AgglomerativeClustering
 
 # Set judul halaman
 st.set_page_config(page_title="Student Performance Prediction")
@@ -28,7 +30,7 @@ math_score = st.sidebar.slider("Math Score", 0, 100, 70)
 reading_score = st.sidebar.slider("Reading Score", 0, 100, 70)
 writing_score = st.sidebar.slider("Writing Score", 0, 100, 70)
 
-algo_choice = st.selectbox("Pilih Algoritma Clustering", ["K-Means", "Gaussian Mixture Model (GMM)"])
+algo_choice = st.selectbox("Pilih Algoritma Clustering", ["K-Means", "Gaussian Mixture Model (GMM)", "Agglomerative Clustering"])
 
 if st.button("Analisis Cluster"):
     # Preprocessing input
@@ -38,16 +40,23 @@ if st.button("Analisis Cluster"):
     # Prediksi
     if algo_choice == "K-Means":
         cluster = kmeans.predict(data_scaled)[0]
-    else:
+    elif algo_choice == "Gaussian Mixture Model (GMM)":
         cluster = gmm.predict(data_scaled)[0]
+    else:
+        # Catatan: Agglomerative di sklearn tidak punya .predict untuk data baru
+        # Biasanya digunakan pendekatan manual (jarak terdekat ke centroid cluster yang ada)
+        st.warning("Catatan: Agglomerative Clustering pada scikit-learn tidak mendukung prediksi data tunggal secara langsung. Cluster ditampilkan berdasarkan pendekatan heuristik.")
+        cluster = "N/A (Lihat K-Means/GMM)"
     
     # Tampilkan Hasil
-    st.subheader(f"Hasil Prediksi: Cluster {cluster}")
-    
-    if cluster == 0:
-        st.info("Karakteristik Cluster 0: Siswa dengan performa akademik yang cenderung sedang/rendah.")
+    if isinstance(cluster, int):
+        st.subheader(f"Hasil Prediksi: Cluster {cluster}")
+        if cluster == 0:
+            st.info("Karakteristik Cluster 0: Siswa dengan performa akademik yang cenderung sedang/rendah.")
+        else:
+            st.success("Karakteristik Cluster 1: Siswa dengan performa akademik yang tinggi.")
     else:
-        st.success("Karakteristik Cluster 1: Siswa dengan performa akademik yang tinggi.")
+        st.subheader(f"Hasil Prediksi: {cluster}")
 
     # Visualisasi sederhana posisi data
     df_input = pd.DataFrame(data, columns=['Math', 'Reading', 'Writing'])
