@@ -6,7 +6,7 @@ from sklearn.cluster import AgglomerativeClustering
 from scipy.spatial.distance import cdist
 
 # Set judul halaman
-st.set_page_config(page_title="Student Performance Prediction")
+st.set_page_config(page_title="Student Performance Prediction", page_icon="🎓")
 
 # Load model dan scaler
 @st.cache_resource
@@ -48,35 +48,39 @@ if st.button("Analisis Cluster"):
     data = np.array([[math_score, reading_score, writing_score]])
     data_scaled = scaler.transform(data)
 
-    # Prediksi
+    # Prediksi Awal (Identitas asli dari model)
+    raw_cluster = None
+
     if algo_choice == "K-Means":
-        cluster = kmeans.predict(data_scaled)[0]
+        raw_cluster = kmeans.predict(data_scaled)[0]
 
     elif algo_choice == "Gaussian Mixture Model (GMM)":
-        cluster = gmm.predict(data_scaled)[0]
+        raw_cluster = gmm.predict(data_scaled)[0]
 
     elif algo_choice == "Agglomerative Clustering":
         if agglo_centroids is None:
-            st.error("File agglo_centroids.pkl tidak ditemukan. Silakan buat terlebih dahulu saat training.")
-            cluster = None
+            st.error("File agglo_centroids.pkl tidak ditemukan.")
         else:
             distances = cdist(data_scaled, agglo_centroids)
-            cluster = np.argmin(distances)
+            raw_cluster = np.argmin(distances)
 
-    # Tampilkan hasil
-    if cluster is not None:
-        st.subheader(f"Hasil Prediksi: Cluster {cluster}")
+    if raw_cluster is not None:
+        
+        final_cluster = 1 if raw_cluster == 0 else 0
 
-        if cluster == 0:
-            st.info("Karakteristik Cluster 0: Performa cenderung rendah/sedang.")
-        elif cluster == 1:
-            st.success("Karakteristik Cluster 1: Performa tinggi.")
-        else:
-            st.warning("Cluster tambahan terdeteksi.")
+        # Tampilkan hasil
+        st.subheader(f"Hasil Prediksi: Cluster {final_cluster}")
 
-    # Info khusus Agglomerative
+        if final_cluster == 0:
+            st.success("✨ **Karakteristik Cluster 0: Performa Akademik Tinggi.**")
+            st.write("Siswa pada kelompok ini memiliki penguasaan materi yang sangat baik di semua bidang.")
+        elif final_cluster == 1:
+            st.warning("⚠️ **Karakteristik Cluster 1: Performa Akademik Rendah/Sedang.**")
+            st.write("Siswa pada kelompok ini memerlukan bimbingan tambahan untuk meningkatkan nilai akademik.")
+
+    # Info teknis khusus Agglomerative
     if algo_choice == "Agglomerative Clustering":
-        st.info("Agglomerative Clustering menggunakan pendekatan jarak ke centroid karena tidak memiliki fungsi predict bawaan.")
+        st.caption("_Info: Menggunakan perhitungan Euclidean Distance ke Centroid._")
 
     # Tampilkan data input
     df_input = pd.DataFrame(data, columns=['Math', 'Reading', 'Writing'])
